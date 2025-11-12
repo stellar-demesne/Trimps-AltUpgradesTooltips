@@ -4,13 +4,14 @@ function WMAUT_percent_of_highest_zone(percent) {
     // "false, true" is "use current universe, obey Obsidian cap".
 }
 
-function WMAUT_DE_count() {
+function WMAUT_check_bought_all_masteries() {
     let maxCost = getTotalTalentCost();
 	let talentCount = countPurchasedTalents();
 	let maxTalents = Object.keys(game.talents).length;
-	if (game.global.spentEssence + game.global.essence > maxCost || talentCount == maxTalents) {
-        return "<p>You have bought all Masteries!</p>"
-    }
+	return game.global.spentEssence + game.global.essence > maxCost || talentCount == maxTalents
+}
+
+function WMAUT_DE_count() {
     let cur_ess = game.global.essence;
     let next_ess = getNextTalentCost()
     let de_text = "<p>You have <b>"
@@ -18,8 +19,21 @@ function WMAUT_DE_count() {
     de_text += "</b> essence; your next Mastery costs "
     de_text += prettify(next_ess)
     de_text += ". (<b>"
-    de_text += prettify(next_ess - cur_ess)
-    de_text += "</b> essence needed)</p>"
+	if (next_ess - cur_ess < 0) {
+		de_text += "You can afford another "
+		let aff_count = checkAffordableTalents() - countPurchasedTalents();
+		if (aff_count > 1) {
+			de_text += aff_count + " Masteries!</b>"
+		}
+		else {
+			de_text += "Mastery!</b>"
+		}
+	}
+	else {
+    	de_text += prettify(next_ess - cur_ess)
+    	de_text += "</b> essence needed"
+	}
+	de_text += ")</p>"
     return de_text;
 }
 
@@ -31,8 +45,14 @@ function WMAUT_MS_count() {
     ms_text += "</b> seeds; your next Mutation costs "
     ms_text += prettify(next_seed)
     ms_text += ". (<b>"
-    ms_text += prettify(next_seed - cur_seed)
-    ms_text += "</b> seeds needed)</p>"
+	if (next_seed - cur_seed < 0) {
+		ms_text += "You can afford another Mutator!</b>"
+	}
+	else {
+    	ms_text += prettify(next_seed - cur_seed)
+		ms_text += "</b> seeds needed"
+	}
+    ms_text += ")</p>"
     return ms_text
 }
 
@@ -58,13 +78,24 @@ function WMAUT_improve_tooltips() {
     if (elem == null) {
         return
     }
-    let tooltiptext = "";
+    let tooltipmode = (game.global.tabForMastery) ? "Masteries" : "Mutators";
+    let tooltiptext = "<p>Click to view your " + tooltipmode + "</p>";
+	let tooltiptail = "";
 
-    // tab is invisible before u1z181+, so no if clause is necessary on that front.
-    tooltiptext += WMAUT_DE_count();
+	if (!WMAUT_check_bought_all_masteries()) {
+    	// tab is invisible before u1z181+, so no if clause is necessary on that front.
+	    tooltiptext += WMAUT_DE_count();
+		// however, if we've bought them all, that info can get relegated to the bottom of the tooltip.
+	}
+	else {
+		tooltiptail += "<p>You have bought all Masteries!</p>";
+	}
     if (game.global.highestRadonLevelCleared >= 200) { // reached u2z201+
         tooltiptext += WMAUT_MS_count();
     }
+	if (game.talents.blacksmith.purchased || game.talents.hyperspeed2.purchased) {
+		tooltiptext += "<hr>"
+	}
     if (game.talents.blacksmith.purchased) { // own BS1
         tooltiptext += WMAUT_blacksmithery_text();
     }
@@ -72,8 +103,7 @@ function WMAUT_improve_tooltips() {
         tooltiptext += WMAUT_hyperspeed_text();
     }
 
-    let tooltipmode = (game.global.tabForMastery) ? "Mastery" : "Mutators";
-    let tooltipfull = "tooltip('" + tooltipmode + "', 'customText', event, '" + tooltiptext + "')";
+    let tooltipfull = "tooltip('" + tooltipmode + "', 'customText', event, '" + tooltiptext + tooltiptail + "')";
     elem.setAttribute('onmouseover', tooltipfull);
 }
 
